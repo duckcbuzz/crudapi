@@ -2,14 +2,18 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
+	"github.com/duckcbuzz/crudapi/api/auth"
 	"github.com/duckcbuzz/crudapi/api/formaterror"
 	"github.com/duckcbuzz/crudapi/api/models"
 	"github.com/duckcbuzz/crudapi/api/responses"
 	"github.com/duckcbuzz/crudapi/api/service"
+	"github.com/gorilla/mux"
 )
 
 func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -35,5 +39,123 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", fmt.Sprintf("%s%s/%d", r.Host, r.RequestURI, userCreated.ID))
-	responses.JSON(w, http.StatusCreated, userCreated)
+	data := struct {
+		Message string `json:"message"`
+		// Data    interface{} `json:"data"`
+	}{
+		"Create Success",
+		// userCreated,
+	}
+	responses.JSON(w, http.StatusCreated, data)
+}
+
+func (server *Server) GetUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := service.FindAllUsers(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusInternalServerError, err)
+		return
+	}
+	data := struct {
+		Message string      `json:"message"`
+		Data    interface{} `json:"data"`
+	}{
+		"Successful processing",
+		users,
+	}
+	responses.JSON(w, http.StatusOK, data)
+}
+
+func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uid, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := service.FindById(server.DB, uint32(uid))
+	if err != nil {
+		responses.ERROR(w, http.StatusInternalServerError, err)
+		return
+	}
+	data := struct {
+		Message string      `json:"message"`
+		Data    interface{} `json:"data"`
+	}{
+		"Successful processing",
+		user,
+	}
+	responses.JSON(w, http.StatusOK, data)
+}
+
+func (server *Server) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uid, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	user := models.User{}
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	tokenID, err := auth.ExtractTokenID(r)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
+		return
+	}
+	if tokenID != uint32(uid) {
+		responses.ERROR(w, http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized)))
+		return
+	}
+
+	updatedUser, err := service.UpdateUser(server.DB, &user, uint32(uid))
+	if err != nil {
+		formattedError := formaterror.FormatError(err.Error())
+		responses.ERROR(w, http.StatusInternalServerError, formattedError)
+		return
+	}
+	responses.JSON(w, http.StatusOK, updatedUser)
+}
+
+func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uid, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	tokenID, err := auth.ExtractTokenID(r)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnauthorized, errors.New("Unauthorized"))
+		return
+	}
+	if tokenID != 0 && tokenID != uint32(uid) {
+		responses.ERROR(w, http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized)))
+		return
+	}
+	rowsAffected, err := service.DeleteUserById(server.DB, uint32(uid))
+	if err != nil {
+		responses.ERROR(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Entity", fmt.Sprintf("%d", uid))
+	data := struct {
+		Message string `json:"message"`
+		Data    int64  `json:"rows affected"`
+	}{
+		"Create Success",
+		rowsAffected,
+	}
+	responses.JSON(w, http.StatusOK, data)
 }

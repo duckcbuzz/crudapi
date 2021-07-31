@@ -19,11 +19,6 @@ func Hash(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
-// func (u *User) SaveUser(db *gorm.DB) (*User, error) {
-
-// 	err := db.Debug().Create(&u).Error
-// 	if err != nil {
-// 		return &User{}, err
-// 	}
-// 	return u, nil
-// }
+func VerifyPassword(hashedPassword string, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
