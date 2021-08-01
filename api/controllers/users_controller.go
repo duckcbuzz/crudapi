@@ -20,6 +20,7 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
 	}
 	user := models.User{}
 	err = json.Unmarshal(body, &user)
@@ -40,11 +41,11 @@ func (server *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", fmt.Sprintf("%s%s/%d", r.Host, r.RequestURI, userCreated.ID))
 	data := struct {
-		Message string `json:"message"`
-		// Data    interface{} `json:"data"`
+		Message string      `json:"message"`
+		Data    interface{} `json:"data"`
 	}{
-		"Create Success",
-		// userCreated,
+		"Create User Success",
+		userCreated,
 	}
 	responses.JSON(w, http.StatusCreated, data)
 }
@@ -73,7 +74,7 @@ func (server *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := service.FindById(server.DB, uint32(uid))
+	user, err := service.FindUserById(server.DB, uint32(uid))
 	if err != nil {
 		responses.ERROR(w, http.StatusInternalServerError, err)
 		return
@@ -154,7 +155,7 @@ func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 		Data    int64  `json:"rows affected"`
 	}{
-		"Create Success",
+		"Delete Success",
 		rowsAffected,
 	}
 	responses.JSON(w, http.StatusOK, data)
