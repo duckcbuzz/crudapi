@@ -9,7 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-func Validate(u *models.User) error {
+func ValidateUser(u *models.User) error {
 	if u.Nickname == "" {
 		return errors.New("required nickname")
 	}
@@ -26,7 +26,7 @@ func Validate(u *models.User) error {
 }
 
 func BeforeSave(user *models.User) error {
-	err := Validate(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func FindAllUsers(db *gorm.DB) (*[]models.User, error) {
 	return &users, nil
 }
 
-func FindById(db *gorm.DB, uid uint32) (*models.User, error) {
+func FindUserById(db *gorm.DB, uid uint32) (*models.User, error) {
 	user := models.User{}
 	err := db.Debug().Model(&models.User{}).First(&user, uid).Error
 	if err != nil {
