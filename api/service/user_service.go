@@ -1,8 +1,10 @@
 package service
 
 import (
+	"encoding/base64"
 	"errors"
 	"log"
+	"os"
 
 	"github.com/badoux/checkmail"
 	"github.com/duckcbuzz/crudapi/api/models"
@@ -113,4 +115,42 @@ func DeleteUserById(db *gorm.DB, uid uint32) (int64, error) {
 		return 0, db.Error
 	}
 	return db.RowsAffected, nil
+}
+
+func ResetPassword(db *gorm.DB, email string) error {
+	user := models.User{}
+	err := db.Debug().Model(&models.User{}).Where("email = ?", email).Take(&user).Error
+	if err != nil {
+		return err
+	}
+
+	if gorm.IsRecordNotFoundError(err) {
+		return errors.New("user not found")
+	}
+
+	s := "new password"
+	se := base64.StdEncoding.EncodeToString([]byte(s))
+
+	to := []string{user.Email}
+	from := os.Getenv("MAIL_DOMAIN")
+	msg := "From: " + from + "\n" +
+		"To: " + to[0] + "\n" +
+		"Subject:Reset password\n\n" +
+		"New password: " + se
+	err = SendMail(to, []byte(msg))
+	if err != nil {
+		return err
+	}
+
+	hashedPassword, err := models.Hash(se)
+	if err != nil {
+		return err
+	}
+
+	user.Password = string(hashedPassword)
+	err = db.Debug().Save(&user).Error
+	if err != nil {
+		return err
+	}
+	return nil
 }

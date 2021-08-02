@@ -160,3 +160,23 @@ func (server *Server) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	responses.JSON(w, http.StatusOK, data)
 }
+
+func (server *Server) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	user := models.User{}
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	err = service.ResetPassword(server.DB, user.Email)
+	if err != nil {
+		responses.ERROR(w, http.StatusInternalServerError, err)
+		return
+	}
+	responses.JSON(w, http.StatusOK, "Reset success")
+}
